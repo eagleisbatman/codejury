@@ -1,0 +1,25 @@
+{
+  "name": "codejury-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "dev:cli": "turbo run dev --filter=@codejury/cli",
+    "dev:tui": "turbo run dev --filter=@codejury/tui",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0",
+    "prettier": "^3.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "npm@11.6.2"
+}

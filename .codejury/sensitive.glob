@@ -1,0 +1,6 @@
+.env*
+*secret*
+*credential*
+*key.pem
+config/production/*
+**/secrets/**

@@ -1,0 +1,22 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.turbo/
+.DS_Store
+*.log
+coverage/
+
+# SQLite databases
+*.db
+*.db-journal
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# CodeJury local data
+.codejury/reviews.db

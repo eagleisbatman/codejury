@@ -1,0 +1,51 @@
+[project]
+name = "codejury"
+default_branch = "main"
+
+[experts]
+enabled = ["gemini"]
+
+[experts.claude]
+model = "claude-sonnet-4-20250514"
+timeout = 120
+focus = ["security", "maintainability"]
+
+[experts.gemini]
+model = "gemini-2.5-pro"
+timeout = 90
+focus = ["performance", "correctness"]
+
+[experts.openai]
+model = "codex-mini"
+timeout = 90
+focus = ["correctness", "test_coverage"]
+
+[experts.ollama]
+model = "qwen2.5-coder:32b"
+timeout = 60
+focus = ["correctness", "style"]
+
+[synthesis]
+strategy = "routed"
+synthesizer = "claude"
+dedup_threshold = 0.75
+
+[output]
+default_format = "markdown"
+severity_threshold = "info"
+
+[cost]
+budget_per_review = 0.50
+budget_monthly = 20
+prefer_free_tier = true
+
+[rules]
+custom_rules = [
+  "Flag any hardcoded secrets or API keys",
+  "Warn about functions exceeding 50 lines",
+  "Check for missing error handling in async functions"
+]
+
+[ci]
+fail_on_severity = "critical"
+max_review_time_seconds = 300

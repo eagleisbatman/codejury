@@ -1,0 +1,15 @@
+codejury_review:
+  stage: test
+  image: node:22
+  script:
+    - npm install -g codejury
+    - cj review --format sarif > codejury-report.sarif || true
+    - cj review --format json > codejury-report.json
+  artifacts:
+    reports:
+      codequality: codejury-report.json
+    paths:
+      - codejury-report.sarif
+      - codejury-report.json
+  rules:
+    - if: $CI_MERGE_REQUEST_IID

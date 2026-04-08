@@ -1,0 +1,40 @@
+{
+  "name": "@codejury/tui",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx --watch src/App.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "prettier --check src/",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@codejury/core": "*",
+    "ink": "^5.1.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "ink-select-input": "^6.0.0",
+    "react": "^18.3.0",
+    "clipboardy": "^4.0.0",
+    "cli-highlight": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.1.0",
+    "typescript": "^5.8.0",
+    "ink-testing-library": "^4.0.0"
+  }
+}

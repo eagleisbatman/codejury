@@ -1,0 +1,54 @@
+name: 'CodeJury Review'
+description: 'Run multi-model code review with CodeJury'
+author: 'CodeJury'
+
+inputs:
+  experts:
+    description: 'Comma-separated expert IDs (default: from config)'
+    required: false
+  strategy:
+    description: 'Review strategy: full_panel, routed, cascading'
+    required: false
+  fail_on_severity:
+    description: 'Fail the check if findings at this severity or above: critical, error, warning'
+    required: false
+    default: 'critical'
+  format:
+    description: 'Output format: json, markdown, sarif'
+    required: false
+    default: 'sarif'
+  budget:
+    description: 'Maximum budget per review in USD'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install CodeJury
+      shell: bash
+      run: npm install -g codejury
+
+    - name: Run Review
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
+        GEMINI_API_KEY: ${{ env.GEMINI_API_KEY }}
+        OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+      run: |
+        ARGS="--format ${{ inputs.format }}"
+        if [ -n "${{ inputs.experts }}" ]; then
+          ARGS="$ARGS --experts ${{ inputs.experts }}"
+        fi
+        cj review $ARGS > codejury-report.${{ inputs.format == 'sarif' && 'sarif' || inputs.format == 'json' && 'json' || 'md' }}
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: Upload SARIF
+      if: inputs.format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: codejury-report.sarif
