@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
 import type { ToolHandler } from '../types.js';
+import { safePath } from './safe-path.js';
 
 const MAX_MATCHES = 50;
 const IGNORE = new Set(['node_modules', '.git', 'dist', '.codejury', 'coverage', '.turbo']);
@@ -88,12 +89,11 @@ export function grepTool(repoPath: string): ToolHandler {
     }
 
     const results: string[] = [];
-    const startDir = searchPath
-      ? resolve(join(repoPath, searchPath))
-      : repoPath;
-
-    if (!startDir.startsWith(resolve(repoPath))) {
-      return 'Error: search path escapes repository root.';
+    let startDir = repoPath;
+    if (searchPath) {
+      const resolved = await safePath(repoPath, searchPath);
+      if (!resolved.ok) return `Error: ${resolved.error}`;
+      startDir = resolved.absPath;
     }
 
     // Check if startDir is a file

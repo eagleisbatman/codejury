@@ -3,7 +3,7 @@ import { ProviderError } from '../types/provider.js';
 import type { Finding } from '../types/finding.js';
 import type { Result } from '../types/result.js';
 import { ok, err } from '../types/result.js';
-import { buildSystemPrompt, buildUserPrompt, estimateTokenCount } from './prompt.js';
+import { buildLegacySystemPrompt, buildUserPrompt, estimateTokenCount } from './prompt.js';
 import { extractFindings } from './parser.js';
 
 export interface CustomProviderConfig {
@@ -45,7 +45,7 @@ export class CustomProvider implements ExpertProvider {
     options?: ReviewOptions,
   ): AsyncGenerator<Finding, ExpertRunMeta, undefined> {
     const startTime = Date.now();
-    const systemPrompt = buildSystemPrompt(this.id, options);
+    const systemPrompt = buildLegacySystemPrompt(this.id, options);
     const userPrompt = buildUserPrompt(payload);
 
     let responseBody: { findings?: unknown[]; usage?: { input_tokens?: number; output_tokens?: number } };
@@ -127,7 +127,7 @@ export class CustomProvider implements ExpertProvider {
   }
 
   estimateCost(payload: ReviewPayload): CostEstimate {
-    const systemPrompt = buildSystemPrompt(this.id);
+    const systemPrompt = buildLegacySystemPrompt(this.id);
     const userPrompt = buildUserPrompt(payload);
     const tokens = estimateTokenCount(systemPrompt + userPrompt);
     return { estimatedInputTokens: tokens, estimatedOutputTokens: 0, estimatedCostUsd: 0 };

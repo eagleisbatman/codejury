@@ -1,6 +1,6 @@
 import simpleGit from 'simple-git';
-import { resolve, join } from 'node:path';
 import type { ToolHandler } from '../types.js';
+import { safePath } from './safe-path.js';
 
 export function gitBlameTool(repoPath: string): ToolHandler {
   return async (args) => {
@@ -8,11 +8,8 @@ export function gitBlameTool(repoPath: string): ToolHandler {
     const startLine = args['start_line'] as number;
     const endLine = args['end_line'] as number;
 
-    // Security: prevent path traversal
-    const absPath = resolve(join(repoPath, path));
-    if (!absPath.startsWith(resolve(repoPath))) {
-      return `Error: path "${path}" escapes the repository root.`;
-    }
+    const resolved = await safePath(repoPath, path);
+    if (!resolved.ok) return `Error: ${resolved.error}`;
 
     try {
       const git = simpleGit(repoPath);
@@ -20,7 +17,6 @@ export function gitBlameTool(repoPath: string): ToolHandler {
         'blame', '-L', `${startLine},${endLine}`, '--porcelain', path,
       ]);
 
-      // Parse porcelain blame output into readable format
       const lines: string[] = [];
       const blameLines = result.split('\n');
       let currentAuthor = '';

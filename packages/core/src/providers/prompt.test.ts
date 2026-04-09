@@ -1,28 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { buildSystemPrompt, buildUserPrompt, estimateTokenCount } from './prompt.js';
+import { buildLegacySystemPrompt, buildUserPrompt, estimateTokenCount } from './prompt.js';
 import type { ReviewPayload } from '../types/provider.js';
 
-describe('buildSystemPrompt', () => {
+describe('buildLegacySystemPrompt', () => {
   it('includes expert ID', () => {
-    const prompt = buildSystemPrompt('claude');
+    const prompt = buildLegacySystemPrompt('claude');
     expect(prompt).toContain('"claude"');
   });
 
   it('includes finding schema', () => {
-    const prompt = buildSystemPrompt('claude');
+    const prompt = buildLegacySystemPrompt('claude');
     expect(prompt).toContain('file_path');
     expect(prompt).toContain('severity');
     expect(prompt).toContain('JSON array');
   });
 
   it('includes focus areas', () => {
-    const prompt = buildSystemPrompt('claude', { focusAreas: ['security', 'performance'] });
+    const prompt = buildLegacySystemPrompt('claude', { focusAreas: ['security', 'performance'] });
     expect(prompt).toContain('security, performance');
     expect(prompt).toContain('Focus especially on');
   });
 
   it('includes custom rules', () => {
-    const prompt = buildSystemPrompt('claude', {
+    const prompt = buildLegacySystemPrompt('claude', {
       customRules: ['No raw SQL', 'Max 50 lines per function'],
     });
     expect(prompt).toContain('No raw SQL');
@@ -31,7 +31,7 @@ describe('buildSystemPrompt', () => {
   });
 
   it('omits focus areas when empty', () => {
-    const prompt = buildSystemPrompt('claude', { focusAreas: [] });
+    const prompt = buildLegacySystemPrompt('claude', { focusAreas: [] });
     expect(prompt).not.toContain('Focus especially on');
   });
 });

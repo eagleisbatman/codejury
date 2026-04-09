@@ -24,8 +24,13 @@ export class GoogleAdapter implements SDKAdapter {
     messages: AdapterMessage[],
     tools: unknown,
     maxTokens: number,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<AdapterResponse> {
+    // Google GenAI SDK does not support AbortSignal pass-through.
+    // Check signal before the request as a best-effort cancellation.
+    if (signal?.aborted) {
+      return { stopReason: 'error', toolCalls: [], textContent: '', inputTokens: 0, outputTokens: 0, rawAssistantMessage: {} };
+    }
     const systemMsg = messages.find((m) => m.role === 'system');
     const contents = messages
       .filter((m) => m.role !== 'system')

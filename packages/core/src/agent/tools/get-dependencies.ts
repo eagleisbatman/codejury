@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
 import type { ToolHandler } from '../types.js';
+import { safePath } from './safe-path.js';
 
 const IMPORT_PATTERNS = [
   /import\s+(?:(?:[\w*{}\s,]+)\s+from\s+)?['"]([^'"]+)['"]/g,
@@ -14,14 +14,11 @@ const IMPORT_PATTERNS = [
 export function getDependenciesTool(repoPath: string): ToolHandler {
   return async (args) => {
     const relPath = args['path'] as string;
-    const absPath = resolve(join(repoPath, relPath));
-
-    if (!absPath.startsWith(resolve(repoPath))) {
-      return 'Error: path escapes repository root.';
-    }
+    const resolved = await safePath(repoPath, relPath);
+    if (!resolved.ok) return `Error: ${resolved.error}`;
 
     try {
-      const content = await readFile(absPath, 'utf-8');
+      const content = await readFile(resolved.absPath, 'utf-8');
       const deps = new Set<string>();
 
       for (const pattern of IMPORT_PATTERNS) {

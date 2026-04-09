@@ -1,3 +1,4 @@
+export { safePath } from './safe-path.js';
 export { TOOL_DEFINITIONS } from './tool-definitions.js';
 export { ToolExecutor } from './tool-executor.js';
 export { readFileTool } from './read-file.js';

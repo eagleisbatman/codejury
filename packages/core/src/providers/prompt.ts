@@ -29,7 +29,8 @@ function formatCustomRules(rules: string[]): string {
   return `\n\nProject-specific review rules (MUST follow these):\n${rules.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
 }
 
-export function buildSystemPrompt(expertId: string, options?: ReviewOptions): string {
+/** Legacy single-pass system prompt. Used only by CustomProvider (non-agentic). */
+export function buildLegacySystemPrompt(expertId: string, options?: ReviewOptions): string {
   const focusAreas = options?.focusAreas ?? [];
   const customRules = options?.customRules ?? [];
 

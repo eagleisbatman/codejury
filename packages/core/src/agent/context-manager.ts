@@ -10,10 +10,13 @@ export interface ContextBudget {
 /**
  * Estimate the token count of the current messages array.
  * Uses ~4 chars per token heuristic (same as prompt.ts estimateTokenCount).
+ * Adds per-message overhead for role labels, structure, and tool definitions.
  */
 export function estimateMessagesTokens(messages: Array<{ content: unknown }>): number {
   let totalChars = 0;
   for (const msg of messages) {
+    // Per-message overhead: role label, delimiters (~10 tokens per message)
+    totalChars += 40;
     if (typeof msg.content === 'string') {
       totalChars += msg.content.length;
     } else if (Array.isArray(msg.content)) {
@@ -22,6 +25,8 @@ export function estimateMessagesTokens(messages: Array<{ content: unknown }>): n
       totalChars += JSON.stringify(msg.content).length;
     }
   }
+  // Add fixed overhead for tool definitions (~2500 tokens for 10 tools)
+  totalChars += 10_000;
   return Math.ceil(totalChars / 4);
 }
 

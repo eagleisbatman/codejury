@@ -1,4 +1,4 @@
-export { buildSystemPrompt, buildUserPrompt, estimateTokenCount } from './prompt.js';
+export { buildLegacySystemPrompt, buildAgenticSystemPrompt, buildUserPrompt, estimateTokenCount } from './prompt.js';
 export { extractFindings } from './parser.js';
 export { withRetry, type RetryOptions } from './retry.js';
 export { AnthropicProvider } from './anthropic.js';

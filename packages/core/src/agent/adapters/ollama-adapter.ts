@@ -24,8 +24,13 @@ export class OllamaAdapter implements SDKAdapter {
     messages: AdapterMessage[],
     tools: unknown,
     _maxTokens: number,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<AdapterResponse> {
+    // Ollama SDK does not support AbortSignal pass-through.
+    // Check signal before the request as a best-effort cancellation.
+    if (signal?.aborted) {
+      return { stopReason: 'error', toolCalls: [], textContent: '', inputTokens: 0, outputTokens: 0, rawAssistantMessage: {} };
+    }
     const ollamaMessages = messages
       .filter((m) => m.role !== 'system')
       .map((m) => ({

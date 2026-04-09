@@ -5,6 +5,7 @@ import { isAgentEvent } from './agent/types.js';
 import { resolveDiff } from './git/diff.js';
 import { createProvider } from './providers/registry.js';
 import { synthesize } from './synthesis/synthesizer.js';
+import { routed, cascading } from './synthesis/strategies.js';
 import { ReviewRepository } from './db/repository.js';
 import { join } from 'node:path';
 import { PROJECT_DIR } from './config/loader.js';
@@ -50,7 +51,46 @@ export async function* runReview(
 
   yield { type: 'review_started', scope, experts: providers.map((p) => p.id) };
 
-  // 3. Dispatch to all providers (full panel for now)
+  // 3. Dispatch using configured strategy
+  const strategy = config.synthesis.strategy;
+  const reviewOptions = {
+    customRules: config.rules.custom_rules,
+  };
+
+  // For routed/cascading, use the strategies module (simpler, no event streaming)
+  if (strategy === 'routed' || strategy === 'cascading') {
+    const strategyResults = strategy === 'routed'
+      ? await routed(providers, payload, reviewOptions)
+      : await cascading(providers, payload, providers[0]!, reviewOptions);
+
+    for (const r of strategyResults) {
+      yield { type: 'expert_started', expertId: r.expertId };
+      for (const f of r.findings) {
+        yield { type: 'expert_finding', expertId: r.expertId, finding: f };
+      }
+      yield { type: 'expert_completed', expertId: r.expertId, meta: r.meta };
+    }
+
+    yield { type: 'synthesis_started' };
+    const report = synthesize(strategyResults, scope, payload.repoName, payload.branchName, 'HEAD', {
+      dedupThreshold: config.synthesis.dedup_threshold,
+      failOnSeverity: config.ci.fail_on_severity,
+    });
+
+    if (!options?.skipDb) {
+      const dbPath = options?.dbPath ?? join(repoPath, PROJECT_DIR, 'reviews.db');
+      let db: ReviewRepository | undefined;
+      try {
+        db = new ReviewRepository(dbPath);
+        db.saveReport(report);
+      } catch { /* best-effort */ } finally { db?.close(); }
+    }
+
+    yield { type: 'synthesis_complete', report };
+    return report;
+  }
+
+  // Full panel strategy — inline dispatch with event streaming
   const expertResults: Array<{
     expertId: string;
     findings: Finding[];

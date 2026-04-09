@@ -1,21 +1,17 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
 import type { ToolHandler } from '../types.js';
+import { safePath } from './safe-path.js';
 
 const MAX_LINES = 500;
 
 export function readFileTool(repoPath: string): ToolHandler {
   return async (args) => {
     const relPath = args['path'] as string;
-    const absPath = resolve(join(repoPath, relPath));
-
-    // Security: prevent path traversal
-    if (!absPath.startsWith(resolve(repoPath))) {
-      return `Error: path "${relPath}" escapes the repository root.`;
-    }
+    const resolved = await safePath(repoPath, relPath);
+    if (!resolved.ok) return `Error: ${resolved.error}`;
 
     try {
-      const content = await readFile(absPath, 'utf-8');
+      const content = await readFile(resolved.absPath, 'utf-8');
       const lines = content.split('\n');
       const startLine = (args['start_line'] as number | undefined) ?? 1;
       const endLine = (args['end_line'] as number | undefined) ?? lines.length;

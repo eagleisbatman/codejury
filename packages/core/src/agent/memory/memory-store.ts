@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { MemoryType } from './memory-types.js';
 
@@ -14,7 +14,6 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
     const sv = source[key];
     const tv = result[key];
     if (Array.isArray(sv) && Array.isArray(tv)) {
-      // Merge arrays: concat and deduplicate by JSON stringification
       const seen = new Set(tv.map((x) => JSON.stringify(x)));
       result[key] = [...tv, ...sv.filter((x) => !seen.has(JSON.stringify(x)))];
     } else if (sv && typeof sv === 'object' && !Array.isArray(sv) && tv && typeof tv === 'object' && !Array.isArray(tv)) {
@@ -24,6 +23,17 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
     }
   }
   return result;
+}
+
+/**
+ * Atomic file write: write to .tmp, then rename.
+ * rename() is atomic on POSIX — if the process crashes mid-write,
+ * the original file remains intact.
+ */
+async function atomicWriteFile(filePath: string, content: string): Promise<void> {
+  const tmpPath = filePath + '.tmp';
+  await writeFile(tmpPath, content, { mode: 0o644 });
+  await rename(tmpPath, filePath);
 }
 
 export class MemoryStore {
@@ -74,7 +84,7 @@ export class MemoryStore {
     for (const [type, pending] of this.pendingWrites) {
       const existing = await this.read(type);
       const merged = deepMerge(existing, { ...pending, lastUpdated: new Date().toISOString() });
-      await writeFile(
+      await atomicWriteFile(
         join(this.memoryDir, FILE_NAMES[type]),
         JSON.stringify(merged, null, 2) + '\n',
       );

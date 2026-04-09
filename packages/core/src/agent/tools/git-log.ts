@@ -1,18 +1,15 @@
 import simpleGit from 'simple-git';
-import { resolve, join } from 'node:path';
 import type { ToolHandler } from '../types.js';
+import { safePath } from './safe-path.js';
 
 export function gitLogTool(repoPath: string): ToolHandler {
   return async (args) => {
     const path = args['path'] as string | undefined;
     const count = Math.min(Math.max(1, (args['count'] as number | undefined) ?? 10), 100);
 
-    // Security: prevent path traversal if path is provided
     if (path) {
-      const absPath = resolve(join(repoPath, path));
-      if (!absPath.startsWith(resolve(repoPath))) {
-        return `Error: path "${path}" escapes the repository root.`;
-      }
+      const resolved = await safePath(repoPath, path);
+      if (!resolved.ok) return `Error: ${resolved.error}`;
     }
 
     try {

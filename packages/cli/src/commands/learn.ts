@@ -23,6 +23,7 @@ const learnStatusCommand = new Command('status')
     let db: Database.Database;
     try {
       db = new Database(dbPath);
+      db.pragma('busy_timeout = 5000');
     } catch {
       console.log(chalk.dim('No review data yet. Run cj review first.'));
       return;
@@ -77,6 +78,7 @@ const learnCompressCommand = new Command('compress')
     let db: Database.Database;
     try {
       db = new Database(dbPath);
+      db.pragma('busy_timeout = 5000');
     } catch {
       console.log(chalk.dim('No review data.'));
       return;
@@ -102,6 +104,7 @@ const learnResetCommand = new Command('reset')
     let db: Database.Database;
     try {
       db = new Database(dbPath);
+      db.pragma('busy_timeout = 5000');
     } catch {
       console.log(chalk.dim('Nothing to reset.'));
       return;
