@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
-  dts: true,
+  dts: false, // CLI is a binary, no one imports it — skip declaration generation
   sourcemap: true,
   clean: true,
   splitting: false,
@@ -15,11 +15,9 @@ export default defineConfig({
     'ink',
     'react',
     'react-devtools-core',
-    // CJS packages that can't be bundled into ESM
     'simple-git',
     '@kwsites/file-exists',
     '@kwsites/promise-deferred',
-    // SDK packages - keep external for cleaner bundling
     '@anthropic-ai/sdk',
     '@google/genai',
     'openai',
