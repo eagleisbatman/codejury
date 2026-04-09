@@ -4,73 +4,69 @@ import { ProviderError } from '../types/provider.js';
 import type { Finding } from '../types/finding.js';
 import type { Result } from '../types/result.js';
 import { ok, err } from '../types/result.js';
-import { buildSystemPrompt, buildUserPrompt } from './prompt.js';
-import { extractFindings } from './parser.js';
+import type { AgentEvent } from '../agent/types.js';
+import { runAgentLoop } from '../agent/agent-loop.js';
+import { OllamaAdapter } from '../agent/adapters/ollama-adapter.js';
+import { ToolExecutor } from '../agent/tools/tool-executor.js';
+import { MemoryStore } from '../agent/memory/memory-store.js';
+import { buildAgenticSystemPrompt, buildUserPrompt } from './prompt.js';
+import { join } from 'node:path';
+import { PROJECT_DIR } from '../config/loader.js';
 
 export class OllamaProvider implements ExpertProvider {
   readonly id = 'ollama';
   readonly name: string;
   readonly model: string;
   private client: Ollama;
+  private maxIterations: number;
 
-  constructor(config: { model: string }) {
+  constructor(config: { model: string; max_iterations?: number }) {
     this.model = config.model;
     this.name = `Ollama (${config.model})`;
     this.client = new Ollama();
+    this.maxIterations = config.max_iterations ?? 5; // Lower default for local models
   }
 
   async *review(
     payload: ReviewPayload,
     options?: ReviewOptions,
-  ): AsyncGenerator<Finding, ExpertRunMeta, undefined> {
+  ): AsyncGenerator<Finding | AgentEvent, ExpertRunMeta, undefined> {
     const startTime = Date.now();
-    const systemPrompt = buildSystemPrompt(this.id, options);
-    const userPrompt = buildUserPrompt(payload);
+    const repoPath = payload.repoPath ?? process.cwd();
+    const memoryDir = join(repoPath, PROJECT_DIR, 'memory');
 
-    let fullText = '';
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let rawFindings = 0;
+    const adapter = new OllamaAdapter(this.model);
+    const memoryStore = new MemoryStore(memoryDir);
+    const toolExecutor = new ToolExecutor(repoPath, memoryStore, this.id);
 
-    try {
-      const response = await this.client.chat({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        format: 'json',
-        stream: false,
-      });
+    const gen = runAgentLoop(adapter, toolExecutor, memoryStore, {
+      maxIterations: this.maxIterations,
+      maxTokens: 4096,
+      contextWindowSize: 32_000, // Conservative for local models
+      contextResetThreshold: 0.7,
+      expertId: this.id,
+      model: this.model,
+      repoPath,
+      memoryDir,
+    }, buildAgenticSystemPrompt(this.id, options), buildUserPrompt(payload), options?.signal);
 
-      fullText = response.message.content;
-      inputTokens = response.prompt_eval_count ?? 0;
-      outputTokens = response.eval_count ?? 0;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const code = msg.includes('not found') || msg.includes('pull')
-        ? 'model_not_found' as const
-        : msg.includes('connect') || msg.includes('ECONNREFUSED')
-          ? 'network_error' as const
-          : 'unknown' as const;
-      throw new ProviderError(code, msg, this.id, e instanceof Error ? e : undefined);
+    let result = await gen.next();
+    while (!result.done) {
+      yield result.value;
+      result = await gen.next();
     }
 
-    const { findings, warnings } = extractFindings(fullText, this.id);
-    rawFindings = findings.length + warnings.length;
-
-    for (const finding of findings) {
-      yield finding;
-    }
-
+    const loopResult = result.value;
     return {
       expertId: this.id,
       model: this.model,
-      tokenUsage: { inputTokens, outputTokens },
+      tokenUsage: { inputTokens: loopResult.totalInputTokens, outputTokens: loopResult.totalOutputTokens },
       costUsd: 0,
       durationMs: Date.now() - startTime,
-      rawFindings,
-      validFindings: findings.length,
+      rawFindings: loopResult.findings.length,
+      validFindings: loopResult.findings.length,
+      iterations: loopResult.iterations,
+      toolCallCount: loopResult.toolCallCount,
     };
   }
 
@@ -81,24 +77,11 @@ export class OllamaProvider implements ExpertProvider {
         (m) => m.name === this.model || m.name === `${this.model}:latest`,
       );
       if (!hasModel) {
-        return err(
-          new ProviderError(
-            'model_not_found',
-            `Model "${this.model}" not found in Ollama. Run: ollama pull ${this.model}`,
-            this.id,
-          ),
-        );
+        return err(new ProviderError('model_not_found', `Model "${this.model}" not found. Run: ollama pull ${this.model}`, this.id));
       }
       return ok(true as const);
     } catch (e) {
-      return err(
-        new ProviderError(
-          'network_error',
-          `Ollama not reachable: ${e instanceof Error ? e.message : String(e)}`,
-          this.id,
-          e instanceof Error ? e : undefined,
-        ),
-      );
+      return err(new ProviderError('network_error', `Ollama not reachable: ${e instanceof Error ? e.message : String(e)}`, this.id));
     }
   }
 

@@ -15,7 +15,8 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
 }
 
 function renderFinding(f: MergedFinding): string {
@@ -30,7 +31,7 @@ function renderFinding(f: MergedFinding): string {
       <h3>${escapeHtml(f.title)}</h3>
       <p class="location">${escapeHtml(f.file_path)}:${f.line_start}-${f.line_end}</p>
       <p class="description">${escapeHtml(f.description)}</p>
-      <p class="experts">Experts: ${f.contributingExperts.join(', ')}</p>
+      <p class="experts">Experts: ${f.contributingExperts.map(e => escapeHtml(e)).join(', ')}</p>
       ${f.suggested_fix ? `<details><summary>Suggested Fix</summary><pre><code>${escapeHtml(f.suggested_fix)}</code></pre></details>` : ''}
       ${f.dissentingOpinions.length > 0 ? `<details><summary>Dissenting Views (${f.dissentingOpinions.length})</summary>${f.dissentingOpinions.map((d) => `<blockquote><strong>${escapeHtml(d.expertId)}</strong> (${d.severity}/${d.category}): ${escapeHtml(d.reasoning.slice(0, 300))}</blockquote>`).join('')}</details>` : ''}
     </div>`;

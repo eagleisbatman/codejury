@@ -3,7 +3,8 @@ import { select, confirm } from '@inquirer/prompts';
 import { mkdir, writeFile, access } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import chalk from 'chalk';
-import { PROJECT_DIR, DEFAULT_CONFIG } from '@codejury/core';
+import { PROJECT_DIR } from '@codejury/core';
+import { getProjectDir } from '../project-dir.js';
 
 const PRESETS: Record<string, { description: string; experts: string[]; strategy: string }> = {
   balanced: {
@@ -98,7 +99,7 @@ Examples:
   $ cj init
   $ cj init --preset balanced`)
   .action(async (opts) => {
-    const cwd = process.cwd();
+    const cwd = getProjectDir();
     const projectDir = join(cwd, PROJECT_DIR);
     const projectName = basename(cwd) || 'project';
 

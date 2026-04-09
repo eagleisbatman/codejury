@@ -20,3 +20,8 @@ coverage/
 
 # CodeJury local data
 .codejury/reviews.db
+.codejury/memory/
+
+# Session data
+.remember/
+.claude/

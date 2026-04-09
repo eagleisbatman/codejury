@@ -7,3 +7,5 @@ export * from './synthesis/index.js';
 export * from './report/index.js';
 export * from './db/index.js';
 export { runReview, type OrchestratorOptions } from './orchestrator.js';
+export * from './agent/index.js';
+export * from './learning/index.js';

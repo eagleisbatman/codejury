@@ -1,11 +1,12 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { loadConfig, discoverAvailableProviders } from '@codejury/core';
+import { getProjectDir } from '../project-dir.js';
 
 export const doctorCommand = new Command('doctor')
   .description('Check expert provider availability and API key status')
   .action(async () => {
-    const cwd = process.cwd();
+    const cwd = getProjectDir();
     const configResult = await loadConfig(cwd);
     if (!configResult.ok) {
       console.log(chalk.yellow('  No .codejury/config.toml found. Using defaults.'));
@@ -16,20 +17,24 @@ export const doctorCommand = new Command('doctor')
 
     console.log(chalk.bold('  Checking expert providers...\n'));
 
-    const expertConfigs: Record<string, { model: string }> = {
+    const discoveries = await discoverAvailableProviders({
       claude: config.experts.claude,
       gemini: config.experts.gemini,
       openai: config.experts.openai,
       ollama: config.experts.ollama,
-    };
-
-    const discoveries = await discoverAvailableProviders(expertConfigs);
+    });
 
     let allGood = true;
     const enabled = config.experts.enabled;
+    const expertModels: Record<string, string> = {
+      claude: config.experts.claude.model,
+      gemini: config.experts.gemini.model,
+      openai: config.experts.openai.model,
+      ollama: config.experts.ollama.model,
+    };
 
     for (const d of discoveries) {
-      const model = expertConfigs[d.id]?.model ?? 'unknown';
+      const model = expertModels[d.id] ?? 'unknown';
       const isEnabled = enabled.includes(d.id);
       const enabledTag = isEnabled ? '' : chalk.dim(' (not in panel)');
       if (d.available) {

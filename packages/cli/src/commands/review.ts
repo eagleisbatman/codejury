@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { writeFile } from 'node:fs/promises';
 import { loadConfig, runReview, formatReport, type GitScope, type OutputFormat } from '@codejury/core';
+import { getProjectDir } from '../project-dir.js';
 
 export const reviewCommand = new Command('review')
   .description('Run a code review (defaults to staged changes)')
@@ -25,7 +26,7 @@ Examples:
   $ cj review --pr https://github.com/org/repo/pull/42
   $ cj review --diff HEAD~3..HEAD --format html -o report.html`)
   .action(async (opts) => {
-    const cwd = process.cwd();
+    const cwd = getProjectDir();
 
     // Load config
     const configResult = await loadConfig(cwd);

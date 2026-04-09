@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Finding, Category } from './finding.js';
 import type { Result } from './result.js';
+import type { AgentEvent } from '../agent/types.js';
 
 // --- Review Payload (what gets sent to experts) ---
 
@@ -31,6 +32,7 @@ export interface ReviewPayload {
   directoryStructure: string;
   totalAdditions: number;
   totalDeletions: number;
+  repoPath?: string;
 }
 
 // --- Provider interface ---
@@ -50,6 +52,8 @@ export interface ExpertRunMeta {
   durationMs: number;
   rawFindings: number;
   validFindings: number;
+  iterations?: number;
+  toolCallCount?: number;
 }
 
 export interface CostEstimate {
@@ -91,7 +95,7 @@ export interface ExpertProvider {
   review(
     payload: ReviewPayload,
     options?: ReviewOptions,
-  ): AsyncGenerator<Finding, ExpertRunMeta, undefined>;
+  ): AsyncGenerator<Finding | AgentEvent, ExpertRunMeta, undefined>;
 
   isAvailable(): Promise<Result<true, ProviderError>>;
 

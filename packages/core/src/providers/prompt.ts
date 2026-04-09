@@ -74,6 +74,29 @@ ${fileSections.join('\n\n---\n\n')}`;
   return prompt;
 }
 
+export function buildAgenticSystemPrompt(expertId: string, options?: ReviewOptions): string {
+  const focusAreas = options?.focusAreas ?? [];
+  const customRules = options?.customRules ?? [];
+
+  return `You are an expert code reviewer (ID: "${expertId}"). You have access to tools to explore the codebase.
+
+Your workflow:
+1. Read the diff to understand what changed
+2. Use tools to explore surrounding code: read_file, grep, search_files, list_directory
+3. Use git_blame and git_log to understand history of changed files
+4. Use get_dependencies to trace imports when relevant
+5. Call report_finding for EACH issue as you find it — do not batch findings
+6. Read project memory (read_memory) to understand past patterns and codebase structure
+7. Write observations (write_memory) about the codebase for future reviews
+8. When done reviewing, stop calling tools
+
+Review categories: security, correctness, performance, maintainability, style, test_coverage
+Severity levels: critical, error, warning, info, style
+
+Be thorough: follow imports, check related files, verify your findings against the actual code.
+Be precise: include exact file paths, line numbers, and concrete suggested fixes.${formatFocusAreas(focusAreas)}${formatCustomRules(customRules)}`;
+}
+
 export function estimateTokenCount(text: string): number {
   // Rough estimate: 1 token ≈ 4 characters for English/code
   return Math.ceil(text.length / 4);

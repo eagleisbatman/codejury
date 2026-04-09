@@ -1,0 +1,10 @@
+export * from './types.js';
+export { LEARNING_SCHEMA } from './episodic-schema.js';
+export { EpisodicStore, captureTrajectory } from './episodic-store.js';
+export { FeedbackStore } from './feedback.js';
+export { CalibrationEngine, applyCalibration } from './calibration.js';
+export { postReviewReflection, postFeedbackReflection } from './reflexion.js';
+export { buildReflectionPrompt } from './reflexion-prompt.js';
+export { PatternLibrary } from './pattern-library.js';
+export { discoverPatternCandidates, synthesizePatternFromCandidate } from './pattern-discovery.js';
+export { shouldCompress, runCompression, DEFAULT_COMPRESSION_CONFIG, type CompressionConfig, type CompressionResult } from './compression.js';

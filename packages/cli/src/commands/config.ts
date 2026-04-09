@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { loadConfig, PROJECT_DIR } from '@codejury/core';
+import { getProjectDir } from '../project-dir.js';
 
 const configGetCommand = new Command('get')
   .description('Get a config value by dotted key')
@@ -14,7 +15,7 @@ Examples:
   $ cj config get experts.enabled
   $ cj config get cost.budget_per_review`)
   .action(async (key: string) => {
-    const cwd = process.cwd();
+    const cwd = getProjectDir();
     const configResult = await loadConfig(cwd);
     if (!configResult.ok) {
       console.error(chalk.red(configResult.error.message));
@@ -40,7 +41,7 @@ Examples:
 const configEditCommand = new Command('edit')
   .description('Open config.toml in $EDITOR')
   .action(async () => {
-    const cwd = process.cwd();
+    const cwd = getProjectDir();
     const configPath = join(cwd, PROJECT_DIR, 'config.toml');
 
     const editor = process.env['EDITOR'] ?? process.env['VISUAL'] ?? (process.platform === 'win32' ? 'notepad' : 'vi');

@@ -143,6 +143,10 @@ export class ReviewRepository {
     return row.total;
   }
 
+  getDatabase(): Database.Database {
+    return this.db;
+  }
+
   close(): void {
     this.db.close();
   }

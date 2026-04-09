@@ -192,6 +192,7 @@ export async function resolveDiff(
       branchName,
       directoryStructure,
       totalAdditions,
+      repoPath,
       totalDeletions,
     });
   } catch (e) {

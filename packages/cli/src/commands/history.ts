@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import { join } from 'node:path';
 import { ReviewRepository, PROJECT_DIR, type Severity } from '@codejury/core';
+import { getProjectDir } from '../project-dir.js';
 
 const SEVERITY_COLORS: Record<Severity, (s: string) => string> = {
   critical: chalk.red,
@@ -23,7 +24,7 @@ Examples:
   $ cj history --since 7d          Reviews from the last week
   $ cj history --branch main       Reviews targeting main`)
   .action(async (opts) => {
-    const cwd = process.cwd();
+    const cwd = getProjectDir();
     const dbPath = join(cwd, PROJECT_DIR, 'reviews.db');
 
     let db: ReviewRepository;

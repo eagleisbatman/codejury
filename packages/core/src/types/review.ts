@@ -86,5 +86,11 @@ export type ReviewEvent =
   | { type: 'expert_finding'; expertId: string; finding: Finding }
   | { type: 'expert_completed'; expertId: string; meta: ExpertRunMeta }
   | { type: 'expert_failed'; expertId: string; error: Error }
+  | { type: 'agent_tool_call'; expertId: string; toolName: string; params: Record<string, unknown>; iteration: number }
+  | { type: 'agent_tool_result'; expertId: string; toolName: string; resultSummary: string; iteration: number }
+  | { type: 'agent_thinking'; expertId: string; text: string; iteration: number }
+  | { type: 'agent_iteration'; expertId: string; iteration: number; findingsSoFar: number }
+  | { type: 'agent_finding'; expertId: string; finding: Finding; iteration: number }
+  | { type: 'agent_context_reset'; expertId: string; reason: string; iteration: number }
   | { type: 'synthesis_started' }
   | { type: 'synthesis_complete'; report: SynthesizedReport };

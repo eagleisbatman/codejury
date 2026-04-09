@@ -1,5 +1,6 @@
 import type { ExpertProvider, ReviewPayload, ReviewOptions, ExpertResult } from '../types/provider.js';
 import type { Finding } from '../types/finding.js';
+import { isAgentEvent } from '../agent/types.js';
 
 async function runProvider(
   provider: ExpertProvider,
@@ -11,7 +12,12 @@ async function runProvider(
 
   let result = await gen.next();
   while (!result.done) {
-    findings.push(result.value);
+    const value = result.value;
+    if (!isAgentEvent(value)) {
+      findings.push(value as Finding);
+    } else if (value.type === 'agent_finding') {
+      findings.push(value.finding);
+    }
     result = await gen.next();
   }
 

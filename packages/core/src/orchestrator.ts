@@ -1,6 +1,7 @@
 import type { GitScope, ReviewEvent, SynthesizedReport } from './types/review.js';
 import type { ProjectConfig } from './types/config.js';
 import type { ExpertProvider, Finding } from './types/index.js';
+import { isAgentEvent } from './agent/types.js';
 import { resolveDiff } from './git/diff.js';
 import { createProvider } from './providers/registry.js';
 import { synthesize } from './synthesis/synthesizer.js';
@@ -57,12 +58,11 @@ export async function* runReview(
   }> = [];
 
   const providerPromises = providers.map(async (provider) => {
-    yield_: {
-      // Can't yield from inside a nested async function,
-      // so we collect events and return them
-    }
     const findings: Finding[] = [];
+    const agentEvents: ReviewEvent[] = [];
     const startEvent: ReviewEvent = { type: 'expert_started', expertId: provider.id };
+    // Track findings that came through agent_finding events (agentic providers)
+    const agentFindingIds = new Set<string>();
 
     try {
       const gen = provider.review(payload, {
@@ -74,18 +74,38 @@ export async function* runReview(
 
       let result = await gen.next();
       while (!result.done) {
-        findings.push(result.value);
+        const value = result.value;
+        if (isAgentEvent(value)) {
+          // Forward agent events (tool calls, thinking, etc.)
+          agentEvents.push(value as ReviewEvent);
+          // Collect findings from agent_finding events
+          if (value.type === 'agent_finding') {
+            findings.push(value.finding);
+            agentFindingIds.add(value.finding.id);
+          }
+        } else {
+          // Direct Finding object (from non-agentic providers like CustomProvider)
+          const finding = value as Finding;
+          findings.push(finding);
+        }
         result = await gen.next();
       }
+
+      // Build expert_finding events only for findings NOT already emitted
+      // via agent_finding in the agentEvents stream
+      const findingEvents: ReviewEvent[] = findings
+        .filter((f) => !agentFindingIds.has(f.id))
+        .map((f): ReviewEvent => ({
+          type: 'expert_finding' as const,
+          expertId: provider.id,
+          finding: f,
+        }));
 
       return {
         startEvent,
         findings,
-        findingEvents: findings.map((f): ReviewEvent => ({
-          type: 'expert_finding' as const,
-          expertId: provider.id,
-          finding: f,
-        })),
+        agentEvents,
+        findingEvents,
         completedEvent: {
           type: 'expert_completed' as const,
           expertId: provider.id,
@@ -97,6 +117,7 @@ export async function* runReview(
       return {
         startEvent,
         findings: [],
+        agentEvents: [],
         findingEvents: [],
         completedEvent: {
           type: 'expert_failed' as const,
@@ -113,6 +134,11 @@ export async function* runReview(
 
   for (const r of results) {
     yield r.startEvent;
+    // Yield agent events (tool calls, thinking, iterations)
+    for (const ae of r.agentEvents) {
+      yield ae;
+    }
+    // Yield deduplicated finding events
     for (const fe of r.findingEvents) {
       yield fe;
     }
@@ -144,12 +170,14 @@ export async function* runReview(
   // 5. Save to DB
   if (!options?.skipDb) {
     const dbPath = options?.dbPath ?? join(repoPath, PROJECT_DIR, 'reviews.db');
+    let db: ReviewRepository | undefined;
     try {
-      const db = new ReviewRepository(dbPath);
+      db = new ReviewRepository(dbPath);
       db.saveReport(report);
-      db.close();
     } catch {
       // DB save is best-effort — don't fail the review
+    } finally {
+      db?.close();
     }
   }
 
