@@ -43,15 +43,24 @@ export class GoogleAdapter implements SDKAdapter {
             : [{ text: JSON.stringify(m.content) }],
       }));
 
-    const response = await this.client.models.generateContent({
-      model: this.model,
-      contents,
-      config: {
-        maxOutputTokens: maxTokens,
-        systemInstruction: systemMsg ? String(systemMsg.content) : undefined,
-        tools: tools as Array<Record<string, unknown>>,
-      },
-    });
+    let response;
+    try {
+      response = await this.client.models.generateContent({
+        model: this.model,
+        contents,
+        config: {
+          maxOutputTokens: maxTokens,
+          systemInstruction: systemMsg ? String(systemMsg.content) : undefined,
+          tools: tools as Array<Record<string, unknown>>,
+        },
+      });
+    } catch (e) {
+      return {
+        stopReason: 'error' as const, toolCalls: [], textContent: '',
+        inputTokens: 0, outputTokens: 0,
+        rawAssistantMessage: { error: e instanceof Error ? e.message : String(e) },
+      };
+    }
 
     const toolCalls = [];
     let textContent = '';

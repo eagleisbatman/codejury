@@ -43,12 +43,21 @@ export class OpenAIAdapter implements SDKAdapter {
       };
     });
 
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      max_tokens: maxTokens,
-      messages: apiMessages,
-      tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
-    }, signal ? { signal } : undefined);
+    let response;
+    try {
+      response = await this.client.chat.completions.create({
+        model: this.model,
+        max_tokens: maxTokens,
+        messages: apiMessages,
+        tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
+      }, signal ? { signal } : undefined);
+    } catch (e) {
+      return {
+        stopReason: 'error' as const, toolCalls: [], textContent: '',
+        inputTokens: 0, outputTokens: 0,
+        rawAssistantMessage: { error: e instanceof Error ? e.message : String(e) },
+      };
+    }
 
     const choice = response.choices[0];
     const message = choice?.message;

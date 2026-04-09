@@ -103,12 +103,15 @@ export async function cascading(
   const primaryResult = await runProvider(primaryProvider, payload, options);
   const results: ExpertResult[] = [primaryResult];
 
-  // Step 2: Find medium+ severity findings to escalate
+  // Step 2: Check if we need to escalate to secondary providers
   const escalationFindings = primaryResult.findings.filter(
     (f) => f.severity === 'critical' || f.severity === 'error' || f.severity === 'warning',
   );
 
-  if (escalationFindings.length === 0) return results;
+  // Escalate if: medium+ findings exist, OR primary failed/returned nothing
+  // (0 findings with 0 valid findings suggests the provider errored out)
+  const primaryFailed = primaryResult.findings.length === 0 && primaryResult.meta.validFindings === 0;
+  if (escalationFindings.length === 0 && !primaryFailed) return results;
 
   // Step 3: Run remaining providers on the full payload for validation
   const secondaryProviders = providers.filter((p) => p.id !== primaryProvider.id);

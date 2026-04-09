@@ -121,7 +121,7 @@ export async function* runReview(
     meta: import('./types/provider.js').ExpertRunMeta;
   }> = [];
 
-  const providerPromises = providers.map(async (provider) => {
+  async function runSingleProvider(provider: ExpertProvider) {
     const findings: Finding[] = [];
     const agentEvents: ReviewEvent[] = [];
     const startEvent: ReviewEvent = { type: 'expert_started', expertId: provider.id };
@@ -160,22 +160,31 @@ export async function* runReview(
         result: { expertId: provider.id, findings, meta: result.value },
       };
     } catch (e) {
+      // Catch ALL errors — never let one provider kill the whole review
       return {
         startEvent, findings: [], agentEvents: [], findingEvents: [],
         completedEvent: { type: 'expert_failed' as const, expertId: provider.id, error: e instanceof Error ? e : new Error(String(e)) } as ReviewEvent,
         result: null,
       };
     }
-  });
+  }
 
-  const results = await Promise.all(providerPromises);
+  const providerPromises = providers.map((provider) => runSingleProvider(provider));
 
-  for (const r of results) {
-    yield r.startEvent;
-    for (const ae of r.agentEvents) yield ae;
-    for (const fe of r.findingEvents) yield fe;
-    yield r.completedEvent;
-    if (r.result) expertResults.push(r.result);
+  const settled = await Promise.allSettled(providerPromises);
+
+  for (const s of settled) {
+    if (s.status === 'fulfilled') {
+      const r = s.value;
+      yield r.startEvent;
+      for (const ae of r.agentEvents) yield ae;
+      for (const fe of r.findingEvents) yield fe;
+      yield r.completedEvent;
+      if (r.result) expertResults.push(r.result);
+    } else {
+      // Promise itself rejected (shouldn't happen with try/catch, but defensive)
+      yield { type: 'expert_failed', expertId: 'unknown', error: s.reason instanceof Error ? s.reason : new Error(String(s.reason)) } as ReviewEvent;
+    }
   }
 
   if (expertResults.length === 0) {

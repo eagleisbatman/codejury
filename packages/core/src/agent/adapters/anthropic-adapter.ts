@@ -28,13 +28,26 @@ export class AnthropicAdapter implements SDKAdapter {
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content as Anthropic.MessageParam['content'] }));
 
     const requestOptions = signal ? { signal } : undefined;
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: maxTokens,
-      system: (systemMsg?.content as string) ?? '',
-      messages: apiMessages,
-      tools: tools as Anthropic.Tool[],
-    }, requestOptions);
+    let response;
+    try {
+      response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: maxTokens,
+        system: (systemMsg?.content as string) ?? '',
+        messages: apiMessages,
+        tools: tools as Anthropic.Tool[],
+      }, requestOptions);
+    } catch (e) {
+      // Convert SDK errors into a safe AdapterResponse instead of throwing
+      return {
+        stopReason: 'error' as const,
+        toolCalls: [],
+        textContent: '',
+        inputTokens: 0,
+        outputTokens: 0,
+        rawAssistantMessage: { error: e instanceof Error ? e.message : String(e) },
+      };
+    }
 
     const toolCalls = [];
     let textContent = '';

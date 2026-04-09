@@ -46,12 +46,21 @@ export class OllamaAdapter implements SDKAdapter {
       });
     }
 
-    const response = await this.client.chat({
-      model: this.model,
-      messages: ollamaMessages,
-      tools: tools as Parameters<Ollama['chat']>[0]['tools'],
-      stream: false,
-    });
+    let response;
+    try {
+      response = await this.client.chat({
+        model: this.model,
+        messages: ollamaMessages,
+        tools: tools as Parameters<Ollama['chat']>[0]['tools'],
+        stream: false,
+      });
+    } catch (e) {
+      return {
+        stopReason: 'error' as const, toolCalls: [], textContent: '',
+        inputTokens: 0, outputTokens: 0,
+        rawAssistantMessage: { error: e instanceof Error ? e.message : String(e) },
+      };
+    }
 
     const toolCalls = (response.message.tool_calls ?? []).map((tc) => ({
       id: nanoid(),
