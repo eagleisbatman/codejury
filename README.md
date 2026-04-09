@@ -41,23 +41,40 @@ cd packages/cli && npm link
 ## Quick start
 
 ```bash
-# 1. Set up API keys (stored in ~/.config/codejury/credentials)
-cj keys set claude      # interactive prompt
-cj keys set gemini AIzaSy...
-
-# 2. Initialize in any git repo
+# 1. Go to any git repo and run the setup wizard
 cd /path/to/your/project
 cj init
+```
 
-# 3. Review code
+The wizard walks you through everything:
+- **API keys** — prompts for each provider key (stored in `~/.config/codejury/credentials`, never in your repo). Shows where to get each key.
+- **Expert selection** — pick which AI models to use. Shows which ones are already available.
+- **Model selection** — choose specific model versions (e.g., Claude Sonnet vs Opus, Gemini Pro vs Flash).
+- **Strategy** — Full Panel (thorough), Routed (balanced), or Cascading (cheap).
+- **Doctor check** — verifies everything works before your first review.
+
+```bash
+# 2. Review code
 cj review                              # staged changes (default)
 cj review --branch feature/auth        # full branch diff
 cj review --diff HEAD~3..HEAD          # last 3 commits
 cj review --files src/auth.ts          # specific files
 cj review --format html -o report.html # save as HTML
 
-# 4. Launch interactive TUI
+# 3. Launch interactive TUI
 cj
+```
+
+### Already have API keys?
+
+```bash
+# Skip the wizard — set keys directly
+cj keys set claude              # interactive (masked input)
+cj keys set gemini AIzaSy...    # inline
+cj keys list                    # see what's configured
+
+# Quick init with a preset
+cj init --preset balanced --skip-keys
 ```
 
 ## Commands
@@ -158,18 +175,42 @@ cj learn reset      # reset all learning data
 
 ## TUI
 
-Launch with `cj` (no arguments) or `cj tui`. 8 screens:
+Launch with `cj` (no arguments) or `cj tui`.
 
-- **Dashboard** — recent reviews, expert health, cost
-- **Review Progress** — live agent activity (tool calls, findings stream)
-- **Review Detail** — findings list, Tab to filter by expert, severity summary
-- **Finding Inspector** — full detail, suggested fix (c to copy), dissenting views
-- **Consensus Map** — expert agreement matrix
-- **Expert Panel** — provider status, models, test connections
-- **History** — searchable review list with sort
-- **Config** — read-only view, e to open in $EDITOR
+### User flow
 
-Keyboard: `j/k` navigate, `Enter` select, `Esc` back, `?` help, `q` quit.
+```
+Dashboard (home screen)
+  |
+  |-- n        → Start new review → Review Progress (live agent activity)
+  |                                    |
+  |                                    → auto-transitions to Review Detail when done
+  |
+  |-- Enter    → Open past review  → Review Detail (findings list)
+  |                                    |
+  |                                    |-- Enter → Finding Inspector (full detail, fix, copy)
+  |                                    |-- m     → Consensus Map (expert agreement matrix)
+  |                                    |-- Tab   → Cycle per-expert filter
+  |
+  |-- 2        → Expert Panel (provider status, test connections)
+  |-- 3        → History (search past reviews, sort by date/findings/cost)
+  |-- 4        → Config (view settings, e to edit in $EDITOR)
+  |-- ?        → Help overlay (all keybindings)
+  |-- q        → Quit
+```
+
+### Screens
+
+| Screen | What you see | Key actions |
+|--------|-------------|-------------|
+| **Dashboard** | Recent reviews with verdict/severity counts, expert health status bar, total cost | `n` new review, `Enter` open, `j/k` navigate |
+| **Review Progress** | Per-expert progress bars, live finding stream as agents discover issues, synthesis status | `Esc` back (auto-navigates to detail when done) |
+| **Review Detail** | All findings sorted by severity, expert attribution dots, agreement percentage | `Enter` inspect, `Tab` filter by expert, `m` consensus map |
+| **Finding Inspector** | Full description, suggested code fix, dissenting expert views, severity votes | `c` copy fix to clipboard, `a` accept, `d` dismiss |
+| **Consensus Map** | Matrix: findings × experts, showing who flagged what, with agreement stats | `Esc` back |
+| **Expert Panel** | Each provider with status (ready/offline), configured model, focus areas | `t` test connection, `j/k` navigate |
+| **History** | All past reviews with date, branch, verdict, severity counts, cost | `/` search, `s` sort, `Enter` open |
+| **Config** | TOML config displayed with sections (experts, synthesis, cost, rules) | `e` open in $EDITOR |
 
 ## Output formats
 
