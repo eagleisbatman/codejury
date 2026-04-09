@@ -1,6 +1,12 @@
 {
-  "name": "codejury-monorepo",
+  "name": "codejury",
+  "version": "0.1.0",
   "private": true,
+  "description": "Autonomous mixture-of-experts code review agent",
+  "bin": {
+    "cj": "./packages/cli/dist/index.js",
+    "codejury": "./packages/cli/dist/index.js"
+  },
   "workspaces": [
     "packages/*"
   ],
@@ -11,7 +17,8 @@
     "dev:cli": "turbo run dev --filter=@codejury/cli",
     "dev:tui": "turbo run dev --filter=@codejury/tui",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "postinstall": "npm run build --if-present || true"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
@@ -21,5 +28,11 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "packageManager": "npm@11.6.2"
+  "packageManager": "npm@11.6.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eagleisbatman/codejury.git"
+  },
+  "keywords": ["code-review", "ai-agents", "mixture-of-experts", "cli", "tui"],
+  "license": "MIT"
 }

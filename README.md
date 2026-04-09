@@ -29,14 +29,28 @@ Each expert is a full **agentic loop** — not a single prompt-response. Agents 
 
 ## Install
 
+Requires Node.js 22+.
+
 ```bash
-# From source
+# One-line install
+curl -fsSL https://raw.githubusercontent.com/eagleisbatman/codejury/main/install.sh | bash
+```
+
+This clones the repo to `~/.codejury-cli`, builds it, and links the `cj` command globally.
+
+<details>
+<summary>Manual install</summary>
+
+```bash
 git clone https://github.com/eagleisbatman/codejury.git
 cd codejury
 npm install
 npm run build
 cd packages/cli && npm link
 ```
+</details>
+
+To update: run the install command again (it pulls the latest).
 
 ## Quick start
 
