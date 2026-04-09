@@ -11,11 +11,8 @@ import { join } from 'node:path';
 import { PROJECT_DIR } from './config/loader.js';
 
 export interface OrchestratorOptions {
-  /** Override expert IDs to use */
   experts?: string[];
-  /** Path to reviews.db (defaults to .codejury/reviews.db) */
   dbPath?: string;
-  /** Skip saving to DB */
   skipDb?: boolean;
 }
 
@@ -34,30 +31,60 @@ export async function* runReview(
 
   // 2. Create providers
   const expertIds = options?.experts ?? config.experts.enabled;
-  const providers: ExpertProvider[] = [];
+  const allProviders: ExpertProvider[] = [];
 
   for (const id of expertIds) {
     const expertConfig = (config.experts as Record<string, unknown>)[id];
     if (!expertConfig || typeof expertConfig !== 'object') continue;
     const result = createProvider(id, expertConfig as Parameters<typeof createProvider>[1]);
     if (result.ok) {
-      providers.push(result.value);
+      allProviders.push(result.value);
     }
   }
 
+  if (allProviders.length === 0) {
+    throw new Error('No expert providers configured. Run `cj init` to set up.');
+  }
+
+  // 3. Pre-flight availability check — skip unavailable providers gracefully
+  const providers: ExpertProvider[] = [];
+  const skippedProviders: Array<{ id: string; reason: string }> = [];
+
+  for (const provider of allProviders) {
+    const available = await provider.isAvailable();
+    if (available.ok) {
+      providers.push(provider);
+    } else {
+      skippedProviders.push({ id: provider.id, reason: available.error.message });
+    }
+  }
+
+  // Yield skip events so the user sees why providers were excluded
+  for (const skipped of skippedProviders) {
+    yield {
+      type: 'expert_failed',
+      expertId: skipped.id,
+      error: new Error(`Skipped: ${skipped.reason}`),
+    };
+  }
+
   if (providers.length === 0) {
-    throw new Error('No expert providers available. Run `cj doctor` to check provider status.');
+    throw new Error(
+      `All ${allProviders.length} expert(s) unavailable:\n` +
+      skippedProviders.map((s) => `  ${s.id}: ${s.reason}`).join('\n') +
+      '\n\nRun `cj keys list` to check API keys, or `cj doctor` for full diagnostics.',
+    );
   }
 
   yield { type: 'review_started', scope, experts: providers.map((p) => p.id) };
 
-  // 3. Dispatch using configured strategy
+  // 4. Dispatch using configured strategy
   const strategy = config.synthesis.strategy;
   const reviewOptions = {
     customRules: config.rules.custom_rules,
   };
 
-  // For routed/cascading, use the strategies module (simpler, no event streaming)
+  // For routed/cascading, use the strategies module
   if (strategy === 'routed' || strategy === 'cascading') {
     const strategyResults = strategy === 'routed'
       ? await routed(providers, payload, reviewOptions)
@@ -80,10 +107,7 @@ export async function* runReview(
     if (!options?.skipDb) {
       const dbPath = options?.dbPath ?? join(repoPath, PROJECT_DIR, 'reviews.db');
       let db: ReviewRepository | undefined;
-      try {
-        db = new ReviewRepository(dbPath);
-        db.saveReport(report);
-      } catch { /* best-effort */ } finally { db?.close(); }
+      try { db = new ReviewRepository(dbPath); db.saveReport(report); } catch { /* best-effort */ } finally { db?.close(); }
     }
 
     yield { type: 'synthesis_complete', report };
@@ -101,7 +125,6 @@ export async function* runReview(
     const findings: Finding[] = [];
     const agentEvents: ReviewEvent[] = [];
     const startEvent: ReviewEvent = { type: 'expert_started', expertId: provider.id };
-    // Track findings that came through agent_finding events (agentic providers)
     const agentFindingIds = new Set<string>();
 
     try {
@@ -116,112 +139,64 @@ export async function* runReview(
       while (!result.done) {
         const value = result.value;
         if (isAgentEvent(value)) {
-          // Forward agent events (tool calls, thinking, etc.)
           agentEvents.push(value as ReviewEvent);
-          // Collect findings from agent_finding events
           if (value.type === 'agent_finding') {
             findings.push(value.finding);
             agentFindingIds.add(value.finding.id);
           }
         } else {
-          // Direct Finding object (from non-agentic providers like CustomProvider)
-          const finding = value as Finding;
-          findings.push(finding);
+          findings.push(value as Finding);
         }
         result = await gen.next();
       }
 
-      // Build expert_finding events only for findings NOT already emitted
-      // via agent_finding in the agentEvents stream
       const findingEvents: ReviewEvent[] = findings
         .filter((f) => !agentFindingIds.has(f.id))
-        .map((f): ReviewEvent => ({
-          type: 'expert_finding' as const,
-          expertId: provider.id,
-          finding: f,
-        }));
+        .map((f): ReviewEvent => ({ type: 'expert_finding' as const, expertId: provider.id, finding: f }));
 
       return {
-        startEvent,
-        findings,
-        agentEvents,
-        findingEvents,
-        completedEvent: {
-          type: 'expert_completed' as const,
-          expertId: provider.id,
-          meta: result.value,
-        } as ReviewEvent,
+        startEvent, findings, agentEvents, findingEvents,
+        completedEvent: { type: 'expert_completed' as const, expertId: provider.id, meta: result.value } as ReviewEvent,
         result: { expertId: provider.id, findings, meta: result.value },
       };
     } catch (e) {
       return {
-        startEvent,
-        findings: [],
-        agentEvents: [],
-        findingEvents: [],
-        completedEvent: {
-          type: 'expert_failed' as const,
-          expertId: provider.id,
-          error: e instanceof Error ? e : new Error(String(e)),
-        } as ReviewEvent,
+        startEvent, findings: [], agentEvents: [], findingEvents: [],
+        completedEvent: { type: 'expert_failed' as const, expertId: provider.id, error: e instanceof Error ? e : new Error(String(e)) } as ReviewEvent,
         result: null,
       };
     }
   });
 
-  // Run all providers in parallel, then yield events in order
   const results = await Promise.all(providerPromises);
 
   for (const r of results) {
     yield r.startEvent;
-    // Yield agent events (tool calls, thinking, iterations)
-    for (const ae of r.agentEvents) {
-      yield ae;
-    }
-    // Yield deduplicated finding events
-    for (const fe of r.findingEvents) {
-      yield fe;
-    }
+    for (const ae of r.agentEvents) yield ae;
+    for (const fe of r.findingEvents) yield fe;
     yield r.completedEvent;
-    if (r.result) {
-      expertResults.push(r.result);
-    }
+    if (r.result) expertResults.push(r.result);
   }
 
   if (expertResults.length === 0) {
-    throw new Error('All expert providers failed.');
+    throw new Error('All expert providers failed during review. Check `cj doctor` for diagnostics.');
   }
 
-  // 4. Synthesize
+  // 5. Synthesize
   yield { type: 'synthesis_started' };
 
   const report = synthesize(
-    expertResults,
-    scope,
-    payload.repoName,
-    payload.branchName,
-    'HEAD', // TODO: resolve actual commit hash
-    {
-      dedupThreshold: config.synthesis.dedup_threshold,
-      failOnSeverity: config.ci.fail_on_severity,
-    },
+    expertResults, scope, payload.repoName, payload.branchName, 'HEAD',
+    { dedupThreshold: config.synthesis.dedup_threshold, failOnSeverity: config.ci.fail_on_severity },
   );
 
-  // 5. Save to DB
+  // 6. Save to DB
   if (!options?.skipDb) {
     const dbPath = options?.dbPath ?? join(repoPath, PROJECT_DIR, 'reviews.db');
     let db: ReviewRepository | undefined;
-    try {
-      db = new ReviewRepository(dbPath);
-      db.saveReport(report);
-    } catch {
-      // DB save is best-effort — don't fail the review
-    } finally {
-      db?.close();
-    }
+    try { db = new ReviewRepository(dbPath); db.saveReport(report); } catch { /* best-effort */ } finally { db?.close(); }
   }
 
   yield { type: 'synthesis_complete', report };
-
   return report;
 }

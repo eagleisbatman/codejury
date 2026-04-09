@@ -91,10 +91,16 @@ Examples:
             spinner.start();
             break;
           }
-          case 'expert_failed':
-            spinner.warn(`${event.expertId}: failed -- ${event.error.message}`);
+          case 'expert_failed': {
+            const msg = event.error.message;
+            if (msg.startsWith('Skipped:')) {
+              spinner.info(`${event.expertId}: ${msg.slice(9).trim()}`);
+            } else {
+              spinner.warn(`${event.expertId}: failed — ${msg}`);
+            }
             spinner.start();
             break;
+          }
           case 'synthesis_started':
             spinner.text = `[${elapsed}s] Synthesizing findings...`;
             break;
